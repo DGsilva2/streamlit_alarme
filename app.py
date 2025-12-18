@@ -4,6 +4,7 @@ import sqlite3
 import time
 from datetime import datetime
 import base64
+import hashlib
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E CSS GERAL ---
 st.set_page_config(
@@ -98,6 +99,15 @@ ADMIN_EMAILS = [
     "diego.dantas@jovimobile.com"
 ]
 
+# --- FUNÇÃO DE HASH PARA SENHAS ---
+def make_hash(password):
+    return hashlib.sha256(str.encode(password)).hexdigest()
+
+def check_hashes(password, hashed_text):
+    if make_hash(password) == hashed_text:
+        return True
+    return False
+
 # --- 2. SISTEMA DE LOGIN E SESSÃO ---
 def check_session():
     if 'logado' not in st.session_state:
@@ -105,6 +115,8 @@ def check_session():
         st.session_state['usuario_atual'] = ''
 
 def login_screen():
+    conn = init_db() 
+    
     def get_base64_image(image_path):
         try:
             with open(image_path, "rb") as img_file:
@@ -127,41 +139,50 @@ def login_screen():
             background-attachment: fixed;
         }}
         .main-container {{
-            max-width: 450px;
+            max-width: 480px;
             margin: auto;
-            padding: 80px;
+            padding: 80px 40px;
             background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url("data:image/png;base64,{bg_container_img}");
             animation: slideIn 1.2s ease-out;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-        }}
+            }}
         
-        /* --- CORREÇÃO DO INPUT --- */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
             background-color: transparent !important;
             border: none !important;
-            
-            /* MUDANÇA AQUI: Cor escura (#31333F) para contrastar com fundo branco */
             color: #31333F !important;
-            caret-color: #31333F !important; /* Cor do cursor piscando */
-            
+            caret-color: #31333F !important;
             padding: 15px 20px !important;
             height: 50px !important;
             border-radius: 15px !important;
         }}
-        
-        /* Cor do placeholder (texto de dica) também escuro */
-        .stTextInput input::placeholder {{
-            color: rgba(49, 51, 63, 0.6) !important;
-        }}
-        
+        .stTextInput input::placeholder {{ color: rgba(49, 51, 63, 0.6) !important; }}
         .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
         h1, h3 {{ color: white !important; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }}
         
-        /* Botão Entrar Personalizado para Primary */
+        /* Abas do Login */
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 10px;
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 5px;
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            height: 40px;
+            white-space: pre-wrap;
+            border-radius: 8px;
+            color: white;
+        }}
+        .stTabs [aria-selected="true"] {{
+            background-color: var(--primary-color) !important;
+            font-weight: bold;
+        }}
+
+        /* Botão Entrar */
         .stButton button {{
             background-color: var(--primary-color) !important;
             color: white !important;
@@ -173,12 +194,7 @@ def login_screen():
             transition: all 0.3s ease;
             text-transform: uppercase;
         }}
-        .stButton button:hover {{
-            filter: brightness(1.1);
-            transform: scale(1.02);
-            border-color: white !important;
-        }}
-        
+        .stButton button:hover {{ filter: brightness(1.1); transform: scale(1.02); }}
         @keyframes slideIn {{ from {{ opacity: 0; transform: translateY(30px); }} to {{ opacity: 1; transform: translateY(0); }} }}
         </style>
         """, unsafe_allow_html=True
@@ -187,28 +203,98 @@ def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.write("")
-        st.write("")
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         st.title("🔐 Acesso")
-        st.markdown("<h3 style='margin-bottom: 30px;'>Controle de Alarmes</h3>", unsafe_allow_html=True)
         
-        with st.form("form_login"):
-            email = st.text_input("E-mail", placeholder="seu.email@jovimobile.com")
-            senha = st.text_input("Senha", type="password", placeholder="******") 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            submit = st.form_submit_button("ENTRAR", type="primary", use_container_width=True)
-            
-            if submit:
-                email_limpo = email.strip().lower()
-                if email_limpo.endswith("@jovimobile.com"):
-                    st.session_state['logado'] = True
-                    st.session_state['usuario_atual'] = email_limpo
-                    st.success(f"Bem-vindo(a), {email_limpo}!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("🚫 Acesso negado. Domínio inválido.")
+        tab_login, tab_cadastro = st.tabs(["ENTRAR", "CRIAR CONTA"])
+        
+        with tab_login:
+            with st.form("form_login"):
+                email = st.text_input("E-mail", placeholder="usuario@jovimobile.com")
+                senha = st.text_input("Senha", type="password", placeholder="******") 
+                st.markdown("<br>", unsafe_allow_html=True)
+                submit = st.form_submit_button("ACESSAR SISTEMA", type="primary", use_container_width=True)
+                
+                if submit:
+                    email_limpo = email.strip().lower()
+                    hashed_pw = make_hash(senha)
+                    
+                    c = conn.cursor()
+                    c.execute("SELECT senha FROM usuarios WHERE email = ?", (email_limpo,))
+                    result = c.fetchone()
+                    
+                    if result:
+                        if result[0] == hashed_pw:
+                            st.session_state['logado'] = True
+                            st.session_state['usuario_atual'] = email_limpo
+                            st.success(f"Olá, {email_limpo}!")
+                            time.sleep(1); st.rerun()
+                        else:
+                            st.error("🔒 Senha incorreta.")
+                    else:
+                        st.error("👤 Usuário não encontrado. Crie uma conta.")
+
+            # --- RECUPERAÇÃO AUTOMÁTICA ---
+            with st.expander("Esqueci minha senha"):
+                st.markdown("##### Recuperação Automática")
+                st.caption("Digite seu email e a palavra de segurança usada no cadastro.")
+                with st.form("form_recuperacao"):
+                    rec_email = st.text_input("E-mail Cadastrado")
+                    rec_palavra = st.text_input("Palavra de Segurança (Ex: nome da mãe, pet)")
+                    rec_new_pass = st.text_input("Nova Senha", type="password")
+                    
+                    if st.form_submit_button("REDEFINIR SENHA"):
+                        email_r = rec_email.strip().lower()
+                        pass_hash = make_hash(rec_palavra.strip().lower()) 
+                        
+                        c = conn.cursor()
+                        c.execute("SELECT palavra_seguranca FROM usuarios WHERE email = ?", (email_r,))
+                        res = c.fetchone()
+                        
+                        if res:
+                            if res[0] == pass_hash:
+                                if len(rec_new_pass) >= 4:
+                                    c.execute("UPDATE usuarios SET senha = ? WHERE email = ?", (make_hash(rec_new_pass), email_r))
+                                    conn.commit()
+                                    st.success("✅ Senha redefinida! Faça login agora.")
+                                else: st.warning("Senha muito curta.")
+                            else:
+                                st.error("🚫 Palavra de segurança incorreta.")
+                        else:
+                            st.error("Email não encontrado.")
+
+        with tab_cadastro:
+            with st.form("form_cadastro"):
+                new_email = st.text_input("Seu E-mail (@jovimobile.com)", placeholder="nome@jovimobile.com")
+                new_pass1 = st.text_input("Crie uma Senha", type="password")
+                new_pass2 = st.text_input("Confirme a Senha", type="password")
+                palavra_seg = st.text_input("Palavra de Segurança (Para recuperar senha)", placeholder="Ex: nome do cachorro, comida favorita")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                btn_cad = st.form_submit_button("CADASTRAR", use_container_width=True)
+                
+                if btn_cad:
+                    email_reg = new_email.strip().lower()
+                    palavra_limpa = palavra_seg.strip().lower()
+                    
+                    if not email_reg.endswith("@jovimobile.com"):
+                        st.warning("⚠️ Use um e-mail @jovimobile.com")
+                    elif new_pass1 != new_pass2:
+                        st.error("⚠️ As senhas não coincidem.")
+                    elif len(new_pass1) < 4:
+                        st.warning("⚠️ Senha muito curta.")
+                    elif len(palavra_limpa) < 2:
+                        st.warning("⚠️ Crie uma palavra de segurança válida.")
+                    else:
+                        try:
+                            c = conn.cursor()
+                            c.execute("INSERT INTO usuarios (email, senha, palavra_seguranca) VALUES (?, ?, ?)", 
+                                      (email_reg, make_hash(new_pass1), make_hash(palavra_limpa)))
+                            conn.commit()
+                            st.success("✅ Conta criada! Faça login na aba 'ENTRAR'.")
+                        except sqlite3.IntegrityError:
+                            st.error("🚫 Este e-mail já possui cadastro. Tente fazer login.")
+                            
         st.markdown('</div>', unsafe_allow_html=True)
 
 def logout():
@@ -219,47 +305,7 @@ def logout():
 # --- 3. SISTEMA PRINCIPAL (PÓS-LOGIN) ---
 def main_system():
     
-    # --- BANCO DE DADOS ---
-    def get_connection():
-        return sqlite3.connect('alarmes.db')
-
-    def init_db():
-        conn = get_connection()
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS lojas (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nome_loja TEXT UNIQUE,
-                        estoque_atual INTEGER
-                    )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS ocorrencias (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        loja_id INTEGER,
-                        quantidade INTEGER,
-                        motivo TEXT,
-                        tipo TEXT, 
-                        status TEXT DEFAULT 'CONCLUIDO',
-                        id_vinculado INTEGER,
-                        data_registro TIMESTAMP,
-                        usuario TEXT,
-                        FOREIGN KEY(loja_id) REFERENCES lojas(id)
-                    )''')
-        c.execute('''CREATE TABLE IF NOT EXISTS permissoes (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email TEXT,
-                        loja_id INTEGER,
-                        FOREIGN KEY(loja_id) REFERENCES lojas(id),
-                        UNIQUE(email, loja_id)
-                    )''')
-        
-        cols_check = [("usuario", "TEXT"), ("tipo", "TEXT"), ("status", "TEXT DEFAULT 'CONCLUIDO'"), ("id_vinculado", "INTEGER")]
-        for col, tipo in cols_check:
-            try: c.execute(f"ALTER TABLE ocorrencias ADD COLUMN {col} {tipo}")
-            except: pass
-            
-        conn.commit()
-        return conn
-
-    conn = init_db()
+    conn = get_connection()
     c = conn.cursor()
 
     # --- FUNÇÕES LEITURA ---
@@ -339,6 +385,27 @@ def main_system():
     def desvincular_usuario(pid):
         c.execute("DELETE FROM permissoes WHERE id = ?", (pid,))
         conn.commit(); st.rerun()
+    
+    def resetar_senha_usuario(email_target, nova_senha):
+        try:
+            c.execute("UPDATE usuarios SET senha = ? WHERE email = ?", (make_hash(nova_senha), email_target))
+            conn.commit()
+            st.success(f"Senha de {email_target} resetada com sucesso!")
+        except Exception as e:
+            st.error(f"Erro: {e}")
+
+    def atualizar_senha_propria(email_atual, senha_antiga, senha_nova):
+        c.execute("SELECT senha FROM usuarios WHERE email = ?", (email_atual,))
+        res = c.fetchone()
+        if res and res[0] == make_hash(senha_antiga):
+            try:
+                c.execute("UPDATE usuarios SET senha = ? WHERE email = ?", (make_hash(senha_nova), email_atual))
+                conn.commit()
+                st.success("✅ Senha alterada com sucesso!")
+                time.sleep(1); st.rerun()
+            except Exception as e: st.error(f"Erro: {e}")
+        else:
+            st.error("🚫 Senha Atual incorreta.")
 
     def abrir_chamado(l, q, m):
         c.execute("SELECT id, estoque_atual FROM lojas WHERE nome_loja = ?", (l,))
@@ -397,6 +464,20 @@ def main_system():
         menu = opts[sel]
 
         st.markdown("---")
+        
+        # --- RODAPÉ DA SIDEBAR: ALTERAR SENHA E LOGOUT JUNTOS ---
+        with st.expander("🔒 Alterar Minha Senha"):
+            with st.form("change_pass_form"):
+                pass_old = st.text_input("Senha Atual", type="password")
+                pass_new1 = st.text_input("Nova Senha", type="password")
+                pass_new2 = st.text_input("Confirmar", type="password")
+                if st.form_submit_button("Atualizar"):
+                    if pass_new1 == pass_new2:
+                        if len(pass_new1) >= 4:
+                            atualizar_senha_propria(user, pass_old, pass_new1)
+                        else: st.warning("Senha curta.")
+                    else: st.warning("Senhas diferentes.")
+        
         if st.button("🚪 Sair / Logout", use_container_width=True):
             logout()
 
@@ -506,7 +587,7 @@ def main_system():
             st.error("Acesso Negado")
         else:
             st.title("⚙️ Admin")
-            t1, t2, t3 = st.tabs(["➕ Criar Loja", "🔧 Gerenciar Estoque", "🔐 Permissões"])
+            t1, t2, t3, t4 = st.tabs(["➕ Criar Loja", "🔧 Gerenciar Estoque", "🔐 Permissões Loja", "👥 Usuários e Senhas"])
             
             with t1:
                 with st.form("fa"):
@@ -528,7 +609,7 @@ def main_system():
                     c1, c2 = st.columns(2)
                     with c1:
                         with st.container(border=True):
-                            st.markdown("### 📉 Baixa Manual (Ajuste)")
+                            st.markdown("### 📉 Baixa Manual")
                             with st.form("fb"):
                                 qb=st.number_input("Qtd",1); mb=st.text_input("Motivo","Ajuste Adm")
                                 if st.form_submit_button("Baixar", type="primary"): reduzir_estoque_admin(sel,qb,mb)
@@ -545,17 +626,93 @@ def main_system():
                 lst = pd.read_sql("SELECT nome_loja FROM lojas", conn)['nome_loja'].tolist()
                 with c1:
                     with st.container(border=True):
-                        st.markdown("**Vincular Usuário**")
+                        st.markdown("**Vincular Usuário a Loja**")
                         if lst:
-                            l=st.selectbox("Loja",lst,key="pl"); e=st.text_input("Email User (@jovimobile.com)")
+                            l=st.selectbox("Loja",lst,key="pl"); e=st.text_input("Email User")
                             if st.button("Conceder Acesso"): vincular_usuario(e,l)
                 with c2:
-                    st.markdown("**Permissões Ativas**")
+                    st.markdown("**Acessos Concedidos**")
                     dfp = pd.read_sql("SELECT p.id, p.email, l.nome_loja FROM permissoes p JOIN lojas l ON p.loja_id=l.id", conn)
                     for i, r in dfp.iterrows():
                         cc1, cc2 = st.columns([4,1])
                         cc1.text(f"{r['email']} -> {r['nome_loja']}")
                         if cc2.button("🗑️", key=f"d{r['id']}"): desvincular_usuario(r['id'])
+            
+            with t4:
+                st.markdown("### Gerenciar Usuários")
+                all_users = pd.read_sql("SELECT email FROM usuarios", conn)
+                st.dataframe(all_users, use_container_width=True)
+                
+                st.markdown("---")
+                st.markdown("#### 🔄 Resetar Senha de Usuário")
+                with st.form("reset_pass"):
+                    u_reset = st.selectbox("Selecione o Usuário", all_users['email'].tolist())
+                    new_p = st.text_input("Nova Senha Temporária")
+                    if st.form_submit_button("Alterar Senha"):
+                        if len(new_p) > 3:
+                            resetar_senha_usuario(u_reset, new_p)
+                        else:
+                            st.warning("Senha muito curta.")
+
+# --- BANCO DE DADOS E INICIALIZAÇÃO ---
+def get_connection():
+    return sqlite3.connect('alarmes.db')
+
+def init_db():
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS lojas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome_loja TEXT UNIQUE,
+                    estoque_atual INTEGER
+                )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS ocorrencias (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    loja_id INTEGER,
+                    quantidade INTEGER,
+                    motivo TEXT,
+                    tipo TEXT, 
+                    status TEXT DEFAULT 'CONCLUIDO',
+                    id_vinculado INTEGER,
+                    data_registro TIMESTAMP,
+                    usuario TEXT,
+                    FOREIGN KEY(loja_id) REFERENCES lojas(id)
+                )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS permissoes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT,
+                    loja_id INTEGER,
+                    FOREIGN KEY(loja_id) REFERENCES lojas(id),
+                    UNIQUE(email, loja_id)
+                )''')
+    # TABELA USUARIOS COM COLUNA DE PALAVRA_SEGURANCA
+    c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                    email TEXT PRIMARY KEY,
+                    senha TEXT,
+                    palavra_seguranca TEXT
+                )''')
+    
+    # Adicionar coluna palavra_seguranca caso a tabela já exista sem ela
+    try:
+        c.execute("ALTER TABLE usuarios ADD COLUMN palavra_seguranca TEXT")
+    except: pass
+
+    # Cria Admins padrão se não existirem (Senha: admin123, Palavra: admin)
+    default_pass = make_hash("admin123")
+    default_word = make_hash("admin")
+    for admin in ADMIN_EMAILS:
+        try:
+            c.execute("INSERT INTO usuarios (email, senha, palavra_seguranca) VALUES (?, ?, ?)", (admin, default_pass, default_word))
+        except:
+            pass # Já existe
+            
+    cols_check = [("usuario", "TEXT"), ("tipo", "TEXT"), ("status", "TEXT DEFAULT 'CONCLUIDO'"), ("id_vinculado", "INTEGER")]
+    for col, tipo in cols_check:
+        try: c.execute(f"ALTER TABLE ocorrencias ADD COLUMN {col} {tipo}")
+        except: pass
+        
+    conn.commit()
+    return conn
 
 # --- EXECUÇÃO ---
 check_session()
