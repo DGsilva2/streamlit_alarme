@@ -13,7 +13,7 @@ st.set_page_config(
     page_icon="🚨"
 )
 
-# CSS Personalizado
+# --- CSS ROBUSTO (GERAL) ---
 st.markdown("""
 <style>
     /* ============================================================
@@ -128,6 +128,7 @@ def login_screen():
     bg_container_img = get_base64_image("j.png")
     bg_input_img = get_base64_image("image_d9a9c9.png")
     
+    # CSS ESPECÍFICO DA TELA DE LOGIN
     st.markdown(
         f"""
         <style>
@@ -147,24 +148,36 @@ def login_screen():
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            }}
+        }}
         
+        /* Garantir texto branco no login */
+        .main-container p, .main-container span, .main-container div, .main-container label {{
+            color: white !important;
+        }}
+        
+        .stCaption {{ color: rgba(255, 255, 255, 0.8) !important; }}
+        
+        /* === INPUTS === */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
             background-color: transparent !important;
             border: none !important;
             color: #31333F !important;
+            -webkit-text-fill-color: #31333F !important;
             caret-color: #31333F !important;
             padding: 15px 20px !important;
             height: 50px !important;
             border-radius: 15px !important;
         }}
-        .stTextInput input::placeholder {{ color: rgba(49, 51, 63, 0.6) !important; }}
-        .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
-        h1, h3 {{ color: white !important; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }}
+        .stTextInput input::placeholder {{ 
+            color: rgba(49, 51, 63, 0.6) !important;
+            -webkit-text-fill-color: rgba(49, 51, 63, 0.6) !important;
+        }}
         
-        /* Abas do Login */
+        .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
+        
+        /* Abas */
         .stTabs [data-baseweb="tab-list"] {{
             gap: 10px;
             background-color: rgba(255,255,255,0.1);
@@ -175,14 +188,14 @@ def login_screen():
             height: 40px;
             white-space: pre-wrap;
             border-radius: 8px;
-            color: white;
+            color: white !important;
         }}
         .stTabs [aria-selected="true"] {{
             background-color: var(--primary-color) !important;
             font-weight: bold;
         }}
 
-        /* Botão Entrar */
+        /* Botão */
         .stButton button {{
             background-color: var(--primary-color) !important;
             color: white !important;
@@ -204,7 +217,10 @@ def login_screen():
     with col2:
         st.write("")
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
-        st.title("🔐 Acesso")
+        
+        # --- CORREÇÃO AQUI: Título HTML puro para garantir centralização ---
+        st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 0px;'>🔐 Acesso</h1>", unsafe_allow_html=True)
+        
         
         tab_login, tab_cadastro = st.tabs(["ENTRAR", "CRIAR CONTA"])
         
@@ -234,7 +250,6 @@ def login_screen():
                     else:
                         st.error("👤 Usuário não encontrado. Crie uma conta.")
 
-            # --- RECUPERAÇÃO AUTOMÁTICA ---
             with st.expander("Esqueci minha senha"):
                 st.markdown("##### Recuperação Automática")
                 st.caption("Digite seu email e a palavra de segurança usada no cadastro.")
@@ -243,7 +258,7 @@ def login_screen():
                     rec_palavra = st.text_input("Palavra de Segurança (Ex: nome da mãe, pet)")
                     rec_new_pass = st.text_input("Nova Senha", type="password")
                     
-                    if st.form_submit_button("REDEFINIR SENHA"):
+                    if st.form_submit_button("REDEFINIR SENHA", use_container_width=True):
                         email_r = rec_email.strip().lower()
                         pass_hash = make_hash(rec_palavra.strip().lower()) 
                         
@@ -644,7 +659,7 @@ def main_system():
                 st.dataframe(all_users, use_container_width=True)
                 
                 st.markdown("---")
-                st.markdown("#### 🔄 Resetar Senha de Usuário")
+                st.markdown("#### 🔄 Resetar Senha de Usuário (Admin)")
                 with st.form("reset_pass"):
                     u_reset = st.selectbox("Selecione o Usuário", all_users['email'].tolist())
                     new_p = st.text_input("Nova Senha Temporária")
