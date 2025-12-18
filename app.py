@@ -13,7 +13,7 @@ st.set_page_config(
     page_icon="🚨"
 )
 
-# --- CSS ROBUSTO (GERAL) ---
+# --- CSS ROBUSTO (GERAL + LOGIN ESPECÍFICO) ---
 st.markdown("""
 <style>
     /* ============================================================
@@ -150,31 +150,37 @@ def login_screen():
             background-repeat: no-repeat;
         }}
         
-        /* Garantir texto branco no login */
-        .main-container p, .main-container span, .main-container div, .main-container label {{
+        /* Textos do Container (Títulos, Labels, etc) -> BRANCO */
+        .main-container p, .main-container span, .main-container div, .main-container label, 
+        .main-container h1, .main-container h2, .main-container h3 {{
             color: white !important;
         }}
-        
         .stCaption {{ color: rgba(255, 255, 255, 0.8) !important; }}
         
-        /* === INPUTS === */
+        /* === INPUTS (CAIXAS DE TEXTO) === */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
             background-color: transparent !important;
             border: none !important;
-            color: #31333F !important;
-            -webkit-text-fill-color: #31333F !important;
-            caret-color: #31333F !important;
+            
+            /* --- CORREÇÃO AQUI: TEXTO BRANCO --- */
+            color: white !important;
+            -webkit-text-fill-color: white !important;
+            caret-color: white !important; /* Cor do cursor piscando */
+            
             padding: 15px 20px !important;
             height: 50px !important;
             border-radius: 15px !important;
         }}
+        
+        /* Placeholder (Dica) -> Branco Transparente */
         .stTextInput input::placeholder {{ 
-            color: rgba(49, 51, 63, 0.6) !important;
-            -webkit-text-fill-color: rgba(49, 51, 63, 0.6) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            -webkit-text-fill-color: rgba(255, 255, 255, 0.7) !important;
         }}
         
+        /* Labels */
         .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
         
         /* Abas */
@@ -218,7 +224,7 @@ def login_screen():
         st.write("")
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # --- CORREÇÃO AQUI: Título HTML puro para garantir centralização ---
+        # Títulos Centralizados HTML
         st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 0px;'>🔐 Acesso</h1>", unsafe_allow_html=True)
         
         
