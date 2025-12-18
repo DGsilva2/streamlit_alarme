@@ -92,7 +92,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DEFINIÇÃO DOS SUPER ADMINS (LISTA ATUALIZADA) ---
+# --- DEFINIÇÃO DOS SUPER ADMINS ---
 ADMIN_EMAILS = [
     "douglas.oliveira@jovimobile.com",
     "diego.dantas@jovimobile.com"
@@ -136,17 +136,28 @@ def login_screen():
             background-position: center;
             background-repeat: no-repeat;
         }}
+        
+        /* --- CORREÇÃO DO INPUT --- */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
             background-color: transparent !important;
             border: none !important;
-            color: white !important;
+            
+            /* MUDANÇA AQUI: Cor escura (#31333F) para contrastar com fundo branco */
+            color: #31333F !important;
+            caret-color: #31333F !important; /* Cor do cursor piscando */
+            
             padding: 15px 20px !important;
             height: 50px !important;
             border-radius: 15px !important;
         }}
-        .stTextInput input::placeholder {{ color: rgba(255, 255, 255, 0.5) !important; }}
+        
+        /* Cor do placeholder (texto de dica) também escuro */
+        .stTextInput input::placeholder {{
+            color: rgba(49, 51, 63, 0.6) !important;
+        }}
+        
         .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
         h1, h3 {{ color: white !important; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }}
         
@@ -182,7 +193,7 @@ def login_screen():
         st.markdown("<h3 style='margin-bottom: 30px;'>Controle de Alarmes</h3>", unsafe_allow_html=True)
         
         with st.form("form_login"):
-            email = st.text_input("E-mail", placeholder="user")
+            email = st.text_input("E-mail", placeholder="seu.email@jovimobile.com")
             senha = st.text_input("Senha", type="password", placeholder="******") 
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -254,7 +265,6 @@ def main_system():
     # --- FUNÇÕES LEITURA ---
     def get_lojas_permitidas():
         u = st.session_state['usuario_atual']
-        # Verifica se está na lista de ADMINS
         if u in ADMIN_EMAILS:
             return pd.read_sql("SELECT id, nome_loja, estoque_atual FROM lojas", conn)
         else:
@@ -368,7 +378,6 @@ def main_system():
             </div>
         """, unsafe_allow_html=True)
 
-        # Badge para qualquer um da lista
         if user in ADMIN_EMAILS:
             st.markdown('<div style="text-align: center; margin-bottom: 15px;"><span class="admin-badge">🛡️ ADMINISTRADOR</span></div>', unsafe_allow_html=True)
 
@@ -378,10 +387,9 @@ def main_system():
             "📊 Painel de Chamados": "Painel de Chamados",
             "🏭 Estoque Atual": "Estoque Atual",
             "🔥 Reportar Queima": "Abrir Chamado (Queima)",
-            "📦 Falha no Estoque": "Resolver Chamado (Reposição)"
+            "📦 Repor Estoque": "Resolver Chamado (Reposição)"
         }
         
-        # Menu extra para admins
         if user in ADMIN_EMAILS:
             opts["⚙️ Administração"] = "ADMINISTRAÇÃO"
             
@@ -399,7 +407,6 @@ def main_system():
         lst = df_my['nome_loja'].tolist()
         
         df_all = get_todas_ocorrencias()
-        # Filtra se NÃO for admin
         if user not in ADMIN_EMAILS: 
             df_all = df_all[df_all['nome_loja'].isin(lst)]
         
@@ -426,7 +433,6 @@ def main_system():
         df_p = get_chamados_pendentes()
         df_s = get_historico_solucoes()
         
-        # Filtra se NÃO for admin
         if user not in ADMIN_EMAILS: 
             df_p = df_p[df_p['nome_loja'].isin(lst)]
             df_s = df_s[df_s['nome_loja'].isin(lst)]
