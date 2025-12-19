@@ -90,6 +90,11 @@ st.markdown("""
         font-weight: bold; 
         border: 1px solid #ff4b4b;
     }
+
+    /* === FORÇAR CAIXA ALTA NOS INPUTS (Visualmente) === */
+    .stTextInput input[type="text"] {
+        text-transform: uppercase;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,6 +164,7 @@ def login_screen():
         .stCaption {{ color: rgba(255, 255, 255, 0.8) !important; }}
         
         /* === INPUTS (CAIXAS DE TEXTO) === */
+        /* No Login, removemos a regra de uppercase forçado para permitir email minúsculo */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
@@ -169,6 +175,7 @@ def login_screen():
             color: white !important;
             -webkit-text-fill-color: white !important;
             caret-color: white !important;
+            text-transform: none !important; /* Email e senha normais */
             
             padding: 15px 20px !important;
             height: 50px !important;
@@ -257,7 +264,6 @@ def login_screen():
             with st.expander("Esqueci minha senha"):
                 st.markdown("##### Recuperação Automática")
                 st.caption("Digite seu email e a palavra de segurança usada no cadastro.")
-                # Adicionado clear_on_submit=True
                 with st.form("form_recuperacao", clear_on_submit=True):
                     rec_email = st.text_input("E-mail Cadastrado")
                     rec_palavra = st.text_input("Palavra de Segurança (Ex: nome da mãe, pet)")
@@ -284,7 +290,6 @@ def login_screen():
                             st.error("Email não encontrado.")
 
         with tab_cadastro:
-            # Adicionado clear_on_submit=True
             with st.form("form_cadastro", clear_on_submit=True):
                 new_email = st.text_input("Seu E-mail (@jovimobile.com)", placeholder="nome@jovimobile.com")
                 new_pass1 = st.text_input("Crie uma Senha", type="password")
@@ -365,7 +370,8 @@ def main_system():
     # --- FUNÇÕES AÇÃO ---
     def cadastrar_loja(n, v, q):
         try:
-            c.execute("INSERT INTO lojas (nome_loja, varejista, estoque_atual) VALUES (?, ?, ?)", (n, v, q))
+            # .upper() FORÇA CAIXA ALTA NO BANCO
+            c.execute("INSERT INTO lojas (nome_loja, varejista, estoque_atual) VALUES (?, ?, ?)", (n.upper(), v.upper(), q))
             conn.commit()
             st.toast("✅ Loja Criada!")
             time.sleep(1); st.rerun()
@@ -395,15 +401,16 @@ def main_system():
                 st.success("✅ Ajuste OK"); time.sleep(1); st.rerun()
             else: st.error("Estoque Baixo.")
 
-    def vincular_usuario(e, l):
-        c.execute("SELECT id FROM lojas WHERE nome_loja = ?", (l,))
+    def vincular_usuario(e, l_nome):
+        c.execute("SELECT id FROM lojas WHERE nome_loja = ?", (l_nome,))
         res = c.fetchone()
         if res:
             try:
                 c.execute("INSERT INTO permissoes (email, loja_id) VALUES (?, ?)", (e.strip().lower(), res[0]))
-                conn.commit(); st.success("OK")
+                conn.commit()
+                st.success(f"Loja '{l_nome}' vinculada a {e}!")
                 time.sleep(1); st.rerun()
-            except: st.warning("Já existe")
+            except: st.warning("Vínculo já existe.")
 
     def desvincular_usuario(pid):
         c.execute("DELETE FROM permissoes WHERE id = ?", (pid,))
@@ -488,7 +495,6 @@ def main_system():
 
         st.markdown("---")
         
-        # Adicionado clear_on_submit=True
         with st.expander("🔒 Alterar Minha Senha"):
             with st.form("change_pass_form", clear_on_submit=True):
                 pass_old = st.text_input("Senha Atual", type="password")
@@ -579,7 +585,6 @@ def main_system():
         df = get_lojas_permitidas()
         lst = df['nome_loja'].tolist()
         if lst:
-            # Adicionado clear_on_submit=True
             with st.form("f1", clear_on_submit=True):
                 l=st.selectbox("Loja", lst); q=st.number_input("Qtd",1); m=st.text_input("Defeito")
                 if st.form_submit_button("Enviar", use_container_width=True): abrir_chamado(l,q,m)
@@ -602,7 +607,6 @@ def main_system():
             
             st.info(f"Resolvendo Problema: **{row['motivo']}** da loja **{row['nome_loja']}**")
             
-            # Adicionado clear_on_submit=True
             with st.form("f2", clear_on_submit=True):
                 q=st.number_input("Quantidade Reposta", int(row['quantidade'])); obs=st.text_input("Observação da Solução / Nº Pedido")
                 if st.form_submit_button("Concluir e Dar Baixa", use_container_width=True): resolver_chamado(idx,q,obs)
@@ -616,7 +620,6 @@ def main_system():
             t1, t2, t3, t4 = st.tabs(["➕ Criar Loja", "🔧 Gerenciar Estoque", "🔐 Permissões Loja", "👥 Usuários e Senhas"])
             
             with t1:
-                # Adicionado clear_on_submit=True
                 with st.form("fa", clear_on_submit=True):
                     st.subheader("Nova Loja")
                     # NOVO CAMPO: VAREJISTA
@@ -626,7 +629,8 @@ def main_system():
                     q=c3.number_input("Estoque Inicial", 0)
                     
                     if st.form_submit_button("Salvar"):
-                        cadastrar_loja(n, v, q)
+                        # FORÇAR UPPERCASE AQUI
+                        cadastrar_loja(n.upper(), v.upper(), q)
             
             with t2:
                 all_l = pd.read_sql("SELECT nome_loja, estoque_atual FROM lojas", conn)
@@ -641,7 +645,6 @@ def main_system():
                     with c1:
                         with st.container(border=True):
                             st.markdown("### 📉 Baixa Manual")
-                            # Adicionado clear_on_submit=True
                             with st.form("fb", clear_on_submit=True):
                                 qb=st.number_input("Qtd",1); mb=st.text_input("Motivo","Ajuste Adm")
                                 if st.form_submit_button("Baixar", type="primary"): reduzir_estoque_admin(sel,qb,mb)
@@ -654,24 +657,65 @@ def main_system():
                 else: st.warning("Vazio.")
 
             with t3:
+                list_users = pd.read_sql("SELECT email FROM usuarios", conn)['email'].tolist()
                 c1,c2=st.columns(2)
-                lst = pd.read_sql("SELECT nome_loja FROM lojas", conn)['nome_loja'].tolist()
+                
                 with c1:
                     with st.container(border=True):
-                        st.markdown("**Vincular Usuário a Loja**")
-                        if lst:
-                            # Transformado em FORM para usar clear_on_submit=True
+                        st.markdown("### 🔗 Vincular")
+                        radio_tipo = st.radio("Método", ["Selecionar Existente", "Digitar Novo"], horizontal=True, label_visibility="collapsed")
+                        
+                        email_selecionado = ""
+                        if radio_tipo == "Selecionar Existente":
+                            email_selecionado = st.selectbox("Usuário", list_users)
+                        else:
+                            email_selecionado = st.text_input("E-mail do Usuário")
+                        
+                        lojas_disponiveis = []
+                        if email_selecionado:
+                            q_filter = """
+                                SELECT nome_loja FROM lojas 
+                                WHERE id NOT IN (
+                                    SELECT loja_id FROM permissoes WHERE email = ?
+                                )
+                            """
+                            lojas_disponiveis = pd.read_sql(q_filter, conn, params=(email_selecionado,))['nome_loja'].tolist()
+                        
+                        if email_selecionado and lojas_disponiveis:
                             with st.form("form_vinculo", clear_on_submit=True):
-                                l=st.selectbox("Loja",lst); e=st.text_input("Email User")
-                                if st.form_submit_button("Conceder Acesso"): vincular_usuario(e,l)
+                                l_add = st.selectbox("Lojas Disponíveis", lojas_disponiveis)
+                                if st.form_submit_button("Vincular Loja"):
+                                    vincular_usuario(email_selecionado, l_add)
+                        elif email_selecionado:
+                            st.success("✅ Este usuário já tem acesso a todas as lojas!")
+                        else:
+                            st.info("Selecione um usuário para ver as lojas disponíveis.")
+
+                # --- MUDANÇA VISUAL AQUI: CARDS ---
                 with c2:
-                    st.markdown("**Acessos Concedidos**")
-                    dfp = pd.read_sql("SELECT p.id, p.email, l.nome_loja, l.varejista FROM permissoes p JOIN lojas l ON p.loja_id=l.id", conn)
-                    for i, r in dfp.iterrows():
-                        cc1, cc2 = st.columns([4,1])
-                        # Mostra o Varejista no resumo
-                        cc1.text(f"{r['email']} -> {r['nome_loja']} ({r['varejista']})")
-                        if cc2.button("🗑️", key=f"d{r['id']}"): desvincular_usuario(r['id'])
+                    st.markdown("### 📋 Acessos Ativos")
+                    query_permissoes = "SELECT p.id, p.email, l.nome_loja, l.varejista FROM permissoes p JOIN lojas l ON p.loja_id=l.id"
+                    params_perm = ()
+                    if st.checkbox("Filtrar pelo usuário selecionado ao lado") and email_selecionado:
+                        query_permissoes += " WHERE p.email = ?"
+                        params_perm = (email_selecionado,)
+                    
+                    dfp = pd.read_sql(query_permissoes, conn, params=params_perm)
+                    if not dfp.empty:
+                        for i, r in dfp.iterrows():
+                            # Criação do Card Visual
+                            with st.container(border=True):
+                                c_info, c_btn = st.columns([5, 1])
+                                with c_info:
+                                    # Limpeza do nome: rafael.martins@... -> Rafael Martins
+                                    nome_limpo = r['email'].split('@')[0].replace('.', ' ').title()
+                                    st.markdown(f"👤 **{nome_limpo}**")
+                                    st.caption(f"🏢 {r['nome_loja']} | {r['varejista']}")
+                                with c_btn:
+                                    st.write("") # Espaço para alinhar
+                                    if st.button("🗑️", key=f"d{r['id']}", help="Remover Acesso"):
+                                        desvincular_usuario(r['id'])
+                    else: st.info("Nenhum acesso encontrado.")
             
             with t4:
                 st.markdown("### Gerenciar Usuários")
@@ -680,7 +724,6 @@ def main_system():
                 
                 st.markdown("---")
                 st.markdown("#### 🔄 Resetar Senha de Usuário (Admin)")
-                # Adicionado clear_on_submit=True
                 with st.form("reset_pass", clear_on_submit=True):
                     u_reset = st.selectbox("Selecione o Usuário", all_users['email'].tolist())
                     new_p = st.text_input("Nova Senha Temporária")
@@ -697,16 +740,12 @@ def get_connection():
 def init_db():
     conn = get_connection()
     c = conn.cursor()
-    
-    # 1. Tabela Lojas com coluna VAREJISTA
     c.execute('''CREATE TABLE IF NOT EXISTS lojas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome_loja TEXT UNIQUE,
                     varejista TEXT,
                     estoque_atual INTEGER
                 )''')
-    
-    # Tenta adicionar a coluna varejista se a tabela ja existir
     try: c.execute("ALTER TABLE lojas ADD COLUMN varejista TEXT")
     except: pass
 
@@ -734,7 +773,6 @@ def init_db():
                     senha TEXT,
                     palavra_seguranca TEXT
                 )''')
-    
     try: c.execute("ALTER TABLE usuarios ADD COLUMN palavra_seguranca TEXT")
     except: pass
 
