@@ -125,7 +125,7 @@ def login_screen():
             return ""
 
     bg_page_img = get_base64_image("transferir (9).jpg")
-    bg_container_img = get_base64_image("j.png")
+    bg_container_img = get_base64_image("new_jovi.png")
     bg_input_img = get_base64_image("image_d9a9c9.png")
     
     # CSS ESPECÍFICO DA TELA DE LOGIN
@@ -142,15 +142,16 @@ def login_screen():
         .main-container {{
             max-width: 480px;
             margin: auto;
-            padding: 80px 40px;
+            padding: 60px 40px;
             background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url("data:image/png;base64,{bg_container_img}");
             animation: slideIn 1.2s ease-out;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+            border-radius: 20px;
         }}
         
-        /* Textos do Container (Títulos, Labels, etc) -> BRANCO */
+        /* Textos do Container -> BRANCO */
         .main-container p, .main-container span, .main-container div, .main-container label, 
         .main-container h1, .main-container h2, .main-container h3 {{
             color: white !important;
@@ -164,23 +165,21 @@ def login_screen():
             background-color: transparent !important;
             border: none !important;
             
-            /* --- CORREÇÃO AQUI: TEXTO BRANCO --- */
+            /* TEXTO BRANCO */
             color: white !important;
             -webkit-text-fill-color: white !important;
-            caret-color: white !important; /* Cor do cursor piscando */
+            caret-color: white !important;
             
             padding: 15px 20px !important;
             height: 50px !important;
             border-radius: 15px !important;
         }}
         
-        /* Placeholder (Dica) -> Branco Transparente */
         .stTextInput input::placeholder {{ 
             color: rgba(255, 255, 255, 0.7) !important;
             -webkit-text-fill-color: rgba(255, 255, 255, 0.7) !important;
         }}
         
-        /* Labels */
         .stTextInput label {{ color: white !important; font-size: 14px; margin-bottom: 5px; }}
         
         /* Abas */
@@ -224,9 +223,8 @@ def login_screen():
         st.write("")
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Títulos Centralizados HTML
         st.markdown("<h1 style='text-align: center; color: white; margin-bottom: 0px;'>🔐 Acesso</h1>", unsafe_allow_html=True)
-        
+        st.markdown("<h3 style='text-align: center; color: white; margin-bottom: 30px;'>Controle de Alarmes</h3>", unsafe_allow_html=True)
         
         tab_login, tab_cadastro = st.tabs(["ENTRAR", "CRIAR CONTA"])
         
@@ -259,7 +257,8 @@ def login_screen():
             with st.expander("Esqueci minha senha"):
                 st.markdown("##### Recuperação Automática")
                 st.caption("Digite seu email e a palavra de segurança usada no cadastro.")
-                with st.form("form_recuperacao"):
+                # Adicionado clear_on_submit=True
+                with st.form("form_recuperacao", clear_on_submit=True):
                     rec_email = st.text_input("E-mail Cadastrado")
                     rec_palavra = st.text_input("Palavra de Segurança (Ex: nome da mãe, pet)")
                     rec_new_pass = st.text_input("Nova Senha", type="password")
@@ -285,7 +284,8 @@ def login_screen():
                             st.error("Email não encontrado.")
 
         with tab_cadastro:
-            with st.form("form_cadastro"):
+            # Adicionado clear_on_submit=True
+            with st.form("form_cadastro", clear_on_submit=True):
                 new_email = st.text_input("Seu E-mail (@jovimobile.com)", placeholder="nome@jovimobile.com")
                 new_pass1 = st.text_input("Crie uma Senha", type="password")
                 new_pass2 = st.text_input("Confirme a Senha", type="password")
@@ -333,9 +333,9 @@ def main_system():
     def get_lojas_permitidas():
         u = st.session_state['usuario_atual']
         if u in ADMIN_EMAILS:
-            return pd.read_sql("SELECT id, nome_loja, estoque_atual FROM lojas", conn)
+            return pd.read_sql("SELECT id, nome_loja, varejista, estoque_atual FROM lojas", conn)
         else:
-            return pd.read_sql("SELECT l.id, l.nome_loja, l.estoque_atual FROM lojas l JOIN permissoes p ON l.id = p.loja_id WHERE p.email = ?", conn, params=(u,))
+            return pd.read_sql("SELECT l.id, l.nome_loja, l.varejista, l.estoque_atual FROM lojas l JOIN permissoes p ON l.id = p.loja_id WHERE p.email = ?", conn, params=(u,))
 
     def get_todas_ocorrencias():
         return pd.read_sql("SELECT o.id, l.nome_loja, o.quantidade, o.motivo, o.data_registro, o.status, o.usuario FROM ocorrencias o JOIN lojas l ON o.loja_id = l.id WHERE o.tipo = 'SAIDA'", conn)
@@ -363,13 +363,14 @@ def main_system():
         return pd.read_sql(query, conn)
 
     # --- FUNÇÕES AÇÃO ---
-    def cadastrar_loja(n, q):
+    def cadastrar_loja(n, v, q):
         try:
-            c.execute("INSERT INTO lojas (nome_loja, estoque_atual) VALUES (?, ?)", (n, q))
+            c.execute("INSERT INTO lojas (nome_loja, varejista, estoque_atual) VALUES (?, ?, ?)", (n, v, q))
             conn.commit()
             st.toast("✅ Loja Criada!")
             time.sleep(1); st.rerun()
-        except: st.error("Loja já existe.")
+        except Exception as e: 
+            st.error(f"Erro ao criar loja: {e}")
 
     def remover_loja(nome):
         c.execute("SELECT id FROM lojas WHERE nome_loja = ?", (nome,))
@@ -401,6 +402,7 @@ def main_system():
             try:
                 c.execute("INSERT INTO permissoes (email, loja_id) VALUES (?, ?)", (e.strip().lower(), res[0]))
                 conn.commit(); st.success("OK")
+                time.sleep(1); st.rerun()
             except: st.warning("Já existe")
 
     def desvincular_usuario(pid):
@@ -486,9 +488,9 @@ def main_system():
 
         st.markdown("---")
         
-        # --- RODAPÉ DA SIDEBAR: ALTERAR SENHA E LOGOUT JUNTOS ---
+        # Adicionado clear_on_submit=True
         with st.expander("🔒 Alterar Minha Senha"):
-            with st.form("change_pass_form"):
+            with st.form("change_pass_form", clear_on_submit=True):
                 pass_old = st.text_input("Senha Atual", type="password")
                 pass_new1 = st.text_input("Nova Senha", type="password")
                 pass_new2 = st.text_input("Confirmar", type="password")
@@ -568,7 +570,8 @@ def main_system():
         df = get_lojas_permitidas()
         if not df.empty:
             st.bar_chart(df.set_index('nome_loja')['estoque_atual'], use_container_width=True)
-            st.dataframe(df[['nome_loja','estoque_atual']].style.map(lambda x: 'background-color: rgba(255,0,0,0.2)' if x<10 else '', subset=['estoque_atual']), use_container_width=True)
+            # Mostra Varejista na tabela
+            st.dataframe(df[['nome_loja', 'varejista', 'estoque_atual']].style.map(lambda x: 'background-color: rgba(255,0,0,0.2)' if x<10 else '', subset=['estoque_atual']), use_container_width=True)
         else: st.info("Sem acesso a lojas.")
 
     elif menu == "Abrir Chamado (Queima)":
@@ -576,7 +579,8 @@ def main_system():
         df = get_lojas_permitidas()
         lst = df['nome_loja'].tolist()
         if lst:
-            with st.form("f1"):
+            # Adicionado clear_on_submit=True
+            with st.form("f1", clear_on_submit=True):
                 l=st.selectbox("Loja", lst); q=st.number_input("Qtd",1); m=st.text_input("Defeito")
                 if st.form_submit_button("Enviar", use_container_width=True): abrir_chamado(l,q,m)
         else: st.warning("Sem lojas.")
@@ -598,7 +602,8 @@ def main_system():
             
             st.info(f"Resolvendo Problema: **{row['motivo']}** da loja **{row['nome_loja']}**")
             
-            with st.form("f2"):
+            # Adicionado clear_on_submit=True
+            with st.form("f2", clear_on_submit=True):
                 q=st.number_input("Quantidade Reposta", int(row['quantidade'])); obs=st.text_input("Observação da Solução / Nº Pedido")
                 if st.form_submit_button("Concluir e Dar Baixa", use_container_width=True): resolver_chamado(idx,q,obs)
         else: st.success("Nenhum chamado pendente para reposição.")
@@ -611,12 +616,17 @@ def main_system():
             t1, t2, t3, t4 = st.tabs(["➕ Criar Loja", "🔧 Gerenciar Estoque", "🔐 Permissões Loja", "👥 Usuários e Senhas"])
             
             with t1:
-                with st.form("fa"):
+                # Adicionado clear_on_submit=True
+                with st.form("fa", clear_on_submit=True):
                     st.subheader("Nova Loja")
-                    c1,c2=st.columns([2,1])
-                    n=c1.text_input("Nome"); q=c2.number_input("Estoque Inicial",0)
+                    # NOVO CAMPO: VAREJISTA
+                    c1,c2,c3 = st.columns([2, 2, 1])
+                    n=c1.text_input("Nome da Loja")
+                    v=c2.text_input("Varejista (Ex: Varejo A)")
+                    q=c3.number_input("Estoque Inicial", 0)
+                    
                     if st.form_submit_button("Salvar"):
-                        cadastrar_loja(n, q)
+                        cadastrar_loja(n, v, q)
             
             with t2:
                 all_l = pd.read_sql("SELECT nome_loja, estoque_atual FROM lojas", conn)
@@ -631,7 +641,8 @@ def main_system():
                     with c1:
                         with st.container(border=True):
                             st.markdown("### 📉 Baixa Manual")
-                            with st.form("fb"):
+                            # Adicionado clear_on_submit=True
+                            with st.form("fb", clear_on_submit=True):
                                 qb=st.number_input("Qtd",1); mb=st.text_input("Motivo","Ajuste Adm")
                                 if st.form_submit_button("Baixar", type="primary"): reduzir_estoque_admin(sel,qb,mb)
                     with c2:
@@ -649,14 +660,17 @@ def main_system():
                     with st.container(border=True):
                         st.markdown("**Vincular Usuário a Loja**")
                         if lst:
-                            l=st.selectbox("Loja",lst,key="pl"); e=st.text_input("Email User")
-                            if st.button("Conceder Acesso"): vincular_usuario(e,l)
+                            # Transformado em FORM para usar clear_on_submit=True
+                            with st.form("form_vinculo", clear_on_submit=True):
+                                l=st.selectbox("Loja",lst); e=st.text_input("Email User")
+                                if st.form_submit_button("Conceder Acesso"): vincular_usuario(e,l)
                 with c2:
                     st.markdown("**Acessos Concedidos**")
-                    dfp = pd.read_sql("SELECT p.id, p.email, l.nome_loja FROM permissoes p JOIN lojas l ON p.loja_id=l.id", conn)
+                    dfp = pd.read_sql("SELECT p.id, p.email, l.nome_loja, l.varejista FROM permissoes p JOIN lojas l ON p.loja_id=l.id", conn)
                     for i, r in dfp.iterrows():
                         cc1, cc2 = st.columns([4,1])
-                        cc1.text(f"{r['email']} -> {r['nome_loja']}")
+                        # Mostra o Varejista no resumo
+                        cc1.text(f"{r['email']} -> {r['nome_loja']} ({r['varejista']})")
                         if cc2.button("🗑️", key=f"d{r['id']}"): desvincular_usuario(r['id'])
             
             with t4:
@@ -666,7 +680,8 @@ def main_system():
                 
                 st.markdown("---")
                 st.markdown("#### 🔄 Resetar Senha de Usuário (Admin)")
-                with st.form("reset_pass"):
+                # Adicionado clear_on_submit=True
+                with st.form("reset_pass", clear_on_submit=True):
                     u_reset = st.selectbox("Selecione o Usuário", all_users['email'].tolist())
                     new_p = st.text_input("Nova Senha Temporária")
                     if st.form_submit_button("Alterar Senha"):
@@ -682,11 +697,19 @@ def get_connection():
 def init_db():
     conn = get_connection()
     c = conn.cursor()
+    
+    # 1. Tabela Lojas com coluna VAREJISTA
     c.execute('''CREATE TABLE IF NOT EXISTS lojas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome_loja TEXT UNIQUE,
+                    varejista TEXT,
                     estoque_atual INTEGER
                 )''')
+    
+    # Tenta adicionar a coluna varejista se a tabela ja existir
+    try: c.execute("ALTER TABLE lojas ADD COLUMN varejista TEXT")
+    except: pass
+
     c.execute('''CREATE TABLE IF NOT EXISTS ocorrencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     loja_id INTEGER,
@@ -706,26 +729,22 @@ def init_db():
                     FOREIGN KEY(loja_id) REFERENCES lojas(id),
                     UNIQUE(email, loja_id)
                 )''')
-    # TABELA USUARIOS COM COLUNA DE PALAVRA_SEGURANCA
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
                     email TEXT PRIMARY KEY,
                     senha TEXT,
                     palavra_seguranca TEXT
                 )''')
     
-    # Adicionar coluna palavra_seguranca caso a tabela já exista sem ela
-    try:
-        c.execute("ALTER TABLE usuarios ADD COLUMN palavra_seguranca TEXT")
+    try: c.execute("ALTER TABLE usuarios ADD COLUMN palavra_seguranca TEXT")
     except: pass
 
-    # Cria Admins padrão se não existirem (Senha: admin123, Palavra: admin)
     default_pass = make_hash("admin123")
     default_word = make_hash("admin")
     for admin in ADMIN_EMAILS:
         try:
             c.execute("INSERT INTO usuarios (email, senha, palavra_seguranca) VALUES (?, ?, ?)", (admin, default_pass, default_word))
         except:
-            pass # Já existe
+            pass 
             
     cols_check = [("usuario", "TEXT"), ("tipo", "TEXT"), ("status", "TEXT DEFAULT 'CONCLUIDO'"), ("id_vinculado", "INTEGER")]
     for col, tipo in cols_check:
