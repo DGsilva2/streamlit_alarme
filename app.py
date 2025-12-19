@@ -164,14 +164,12 @@ def login_screen():
         .stCaption {{ color: rgba(255, 255, 255, 0.8) !important; }}
         
         /* === INPUTS (CAIXAS DE TEXTO) === */
-        /* No Login, removemos a regra de uppercase forçado para permitir email minúsculo */
         .stTextInput input {{
             background-image: url("data:image/png;base64,{bg_input_img}") !important;
             background-size: 100% 100% !important;
             background-color: transparent !important;
             border: none !important;
             
-            /* TEXTO BRANCO */
             color: white !important;
             -webkit-text-fill-color: white !important;
             caret-color: white !important;
@@ -370,7 +368,6 @@ def main_system():
     # --- FUNÇÕES AÇÃO ---
     def cadastrar_loja(n, v, q):
         try:
-            # .upper() FORÇA CAIXA ALTA NO BANCO
             c.execute("INSERT INTO lojas (nome_loja, varejista, estoque_atual) VALUES (?, ?, ?)", (n.upper(), v.upper(), q))
             conn.commit()
             st.toast("✅ Loja Criada!")
@@ -576,7 +573,6 @@ def main_system():
         df = get_lojas_permitidas()
         if not df.empty:
             st.bar_chart(df.set_index('nome_loja')['estoque_atual'], use_container_width=True)
-            # Mostra Varejista na tabela
             st.dataframe(df[['nome_loja', 'varejista', 'estoque_atual']].style.map(lambda x: 'background-color: rgba(255,0,0,0.2)' if x<10 else '', subset=['estoque_atual']), use_container_width=True)
         else: st.info("Sem acesso a lojas.")
 
@@ -622,14 +618,12 @@ def main_system():
             with t1:
                 with st.form("fa", clear_on_submit=True):
                     st.subheader("Nova Loja")
-                    # NOVO CAMPO: VAREJISTA
                     c1,c2,c3 = st.columns([2, 2, 1])
                     n=c1.text_input("Nome da Loja")
                     v=c2.text_input("Varejista (Ex: Varejo A)")
                     q=c3.number_input("Estoque Inicial", 0)
                     
                     if st.form_submit_button("Salvar"):
-                        # FORÇAR UPPERCASE AQUI
                         cadastrar_loja(n.upper(), v.upper(), q)
             
             with t2:
@@ -669,17 +663,21 @@ def main_system():
                         if radio_tipo == "Selecionar Existente":
                             email_selecionado = st.selectbox("Usuário", list_users)
                         else:
-                            email_selecionado = st.text_input("E-mail do Usuário")
+                            # --- CORREÇÃO 1: INPUT LOWER PARA EVITAR ERROS DE CAIXA ---
+                            email_raw = st.text_input("E-mail do Usuário")
+                            email_selecionado = email_raw.strip().lower()
                         
                         lojas_disponiveis = []
                         if email_selecionado:
+                            # --- CORREÇÃO 2: FILTRO EXCLUSIVO (Esconde lojas que já têm dono) ---
+                            # Removemos o "WHERE email = ?" e deixamos apenas "SELECT loja_id FROM permissoes"
                             q_filter = """
                                 SELECT nome_loja FROM lojas 
                                 WHERE id NOT IN (
-                                    SELECT loja_id FROM permissoes WHERE email = ?
+                                    SELECT loja_id FROM permissoes
                                 )
                             """
-                            lojas_disponiveis = pd.read_sql(q_filter, conn, params=(email_selecionado,))['nome_loja'].tolist()
+                            lojas_disponiveis = pd.read_sql(q_filter, conn)['nome_loja'].tolist()
                         
                         if email_selecionado and lojas_disponiveis:
                             with st.form("form_vinculo", clear_on_submit=True):
@@ -687,11 +685,10 @@ def main_system():
                                 if st.form_submit_button("Vincular Loja"):
                                     vincular_usuario(email_selecionado, l_add)
                         elif email_selecionado:
-                            st.success("✅ Este usuário já tem acesso a todas as lojas!")
+                            st.info("⚠️ Todas as lojas já possuem responsável ou não há lojas cadastradas.")
                         else:
                             st.info("Selecione um usuário para ver as lojas disponíveis.")
 
-                # --- MUDANÇA VISUAL AQUI: CARDS ---
                 with c2:
                     st.markdown("### 📋 Acessos Ativos")
                     query_permissoes = "SELECT p.id, p.email, l.nome_loja, l.varejista FROM permissoes p JOIN lojas l ON p.loja_id=l.id"
@@ -703,16 +700,14 @@ def main_system():
                     dfp = pd.read_sql(query_permissoes, conn, params=params_perm)
                     if not dfp.empty:
                         for i, r in dfp.iterrows():
-                            # Criação do Card Visual
                             with st.container(border=True):
                                 c_info, c_btn = st.columns([5, 1])
                                 with c_info:
-                                    # Limpeza do nome: rafael.martins@... -> Rafael Martins
                                     nome_limpo = r['email'].split('@')[0].replace('.', ' ').title()
                                     st.markdown(f"👤 **{nome_limpo}**")
                                     st.caption(f"🏢 {r['nome_loja']} | {r['varejista']}")
                                 with c_btn:
-                                    st.write("") # Espaço para alinhar
+                                    st.write("") 
                                     if st.button("🗑️", key=f"d{r['id']}", help="Remover Acesso"):
                                         desvincular_usuario(r['id'])
                     else: st.info("Nenhum acesso encontrado.")
